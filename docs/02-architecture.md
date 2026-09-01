@@ -6,7 +6,6 @@ The architecture is intentionally small. It defines responsibility boundaries ra
 
 ## Four responsibility domains
 
-```mermaid
 Host AI
 → Working Logic
 
@@ -18,7 +17,6 @@ Working Logic
 
 System Contract
 → Persistent State
-```
 
 The four domains are:
 
