@@ -7,26 +7,16 @@ The architecture is intentionally small. It defines responsibility boundaries ra
 ## Four responsibility domains
 
 ```mermaid
-                 ┌──────────────────┐
-                 │     Host AI      │
-                 └────────┬─────────┘
-                          │ executes
-                          ▼
-                 ┌──────────────────┐
-                 │  Working Logic   │◄──────────────┐
-                 └────────┬─────────┘               │
-                          │                         │
-                 forms persistence intent          │ provides
-                          │                         │ formal state
-                          ▼                         │
-                 ┌──────────────────┐               │
-                 │ System Contract  │               │
-                 └────────┬─────────┘               │
-                          │ governs                 │
-                          ▼                         │
-                 ┌──────────────────┐               │
-                 │ Persistent State │───────────────┘
-                 └──────────────────┘
+flowchart TB
+    H[Host AI]
+    L[Working Logic]
+    C[System Contract]
+    S[Persistent State]
+
+    H -->|executes| L
+    S -->|provides formal state| L
+    L -->|forms persistence intent| C
+    C -->|governs persistence| S
 ```
 
 The four domains are:
