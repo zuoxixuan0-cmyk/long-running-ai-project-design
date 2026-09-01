@@ -6,17 +6,28 @@ The architecture is intentionally small. It defines responsibility boundaries ra
 
 ## Four responsibility domains
 
-Host AI
-→ Working Logic
-
-Persistent State
-→ Working Logic
-
-Working Logic
-→ System Contract
-
-System Contract
-→ Persistent State
+```mermaid
+                 ┌──────────────────┐
+                 │     Host AI      │
+                 └────────┬─────────┘
+                          │ executes
+                          ▼
+                 ┌──────────────────┐
+                 │  Working Logic   │◄──────────────┐
+                 └────────┬─────────┘               │
+                          │                         │
+                 forms persistence intent          │ provides
+                          │                         │ formal state
+                          ▼                         │
+                 ┌──────────────────┐               │
+                 │ System Contract  │               │
+                 └────────┬─────────┘               │
+                          │ governs                 │
+                          ▼                         │
+                 ┌──────────────────┐               │
+                 │ Persistent State │───────────────┘
+                 └──────────────────┘
+```
 
 The four domains are:
 
