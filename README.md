@@ -34,10 +34,6 @@ flowchart TB
     L -->|forms persistence intent| C
     C -->|governs persistence| S
 ```
-Host AI executes the Working Logic.
-Persistent State provides formal state to the Working Logic.
-Working Logic forms persistence intent.
-The System Contract governs changes to Persistent State.
 
 **Host AI** is the execution environment: the model, tools, file access, and interaction surface available in a given run.
 
