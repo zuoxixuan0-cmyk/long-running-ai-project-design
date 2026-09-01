@@ -22,16 +22,17 @@ It is not a product or a universal agent framework. It is a public description o
 
 I currently separate the system into four responsibility domains:
 
-```flowchart TD
-    H["Host AI"]
-    L["Working Logic"]
-    C["System Contract"]
-    S["Persistent State"]
+```mermaid
+flowchart TB
+    H[Host AI]
+    L[Working Logic]
+    C[System Contract]
+    S[Persistent State]
 
-    H --> L
-    S --> L
-    L --> C
-    C --> S
+    H -->|executes| L
+    S -->|provides formal state| L
+    L -->|forms persistence intent| C
+    C -->|governs persistence| S
 ```
 Host AI executes the Working Logic.
 Persistent State provides formal state to the Working Logic.
