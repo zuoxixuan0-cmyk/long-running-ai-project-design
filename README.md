@@ -23,26 +23,16 @@ It is not a product or a universal agent framework. It is a public description o
 I currently separate the system into four responsibility domains:
 
 ```mermaid
-                 ┌──────────────────┐
-                 │     Host AI      │
-                 └────────┬─────────┘
-                          │ executes
-                          ▼
-                 ┌──────────────────┐
-                 │  Working Logic   │◄──────────────┐
-                 └────────┬─────────┘               │
-                          │                         │
-                 forms persistence intent          │ provides
-                          │                         │ formal state
-                          ▼                         │
-                 ┌──────────────────┐               │
-                 │ System Contract  │               │
-                 └────────┬─────────┘               │
-                          │ governs                 │
-                          ▼                         │
-                 ┌──────────────────┐               │
-                 │ Persistent State │───────────────┘
-                 └──────────────────┘
+flowchart TB
+    H[Host AI]
+    L[Working Logic]
+    C[System Contract]
+    S[Persistent State]
+
+    H -->|executes| L
+    S -->|provides formal state| L
+    L -->|forms persistence intent| C
+    C -->|governs persistence| S
 ```
 
 **Host AI** is the execution environment: the model, tools, file access, and interaction surface available in a given run.
