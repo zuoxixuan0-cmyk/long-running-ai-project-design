@@ -23,6 +23,7 @@ It is not a product or a universal agent framework. It is a public description o
 I currently separate the system into four responsibility domains:
 
 ```mermaid
+```text
                  ┌──────────────────┐
                  │     Host AI      │
                  └────────┬─────────┘
