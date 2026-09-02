@@ -1,262 +1,485 @@
 # Design Method
 
-The architecture in this repository was not designed all at once.
+A long-running AI project usually does not become reliable by designing
+every mechanism in advance.
 
-Most of it came from a repeating cycle: a project behaved badly in a specific way, I isolated that behavior, tested a smaller case, changed as little as possible, and then checked whether the fix created a new problem somewhere else.
+The design evolves through a cycle:
 
-This document describes that process.
-
-## Start with an observable failure
-
-“AI forgets things” is not a useful engineering statement.
-
-“In a new invocation, an unaccepted candidate from the previous conversation is treated as formal current state” is much better.
-
-The second statement gives me something I can reproduce.
-
-A useful failure description usually contains four pieces:
-
-- what I expected;
-- what actually happened;
-- the boundary in which it happened;
-- why it matters to later behavior.
-
-The goal is to make the failure specific enough that another run can prove whether it still exists.
-
-## Reduce the failure to one behavioral slice
-
-Large instruction sets are hard to debug because too many rules interact at once.
-
-I therefore isolate a **behavioral slice**: the smallest behavior that can fail independently.
-
-For the Current example, the test might be:
-
-```text
-Given:
-Formal Current = A
-
-When:
-B is discussed as a possibility
-but never formally adopted
-
-Then:
-A later invocation should still resolve Current as A
-unless new evidence justifies a formal change
+``` text
+Observed problem
+→ Isolate the behavior
+→ Test the boundary
+→ Make the smallest useful change
+→ Observe again
 ```
 
-This is deliberately narrow. It does not test the entire project.
+This document describes the process I use to turn failures into design
+decisions.
 
-That is the point.
+The goal is not to create the largest architecture.
 
-## Use synthetic cases before real complexity
+The goal is to keep a traceable relationship between:
 
-The first test case should remove as much business detail as possible.
+``` text
+Problem
+
+↓
+
+Design Decision
+
+↓
+
+Implementation
+
+↓
+
+Observed Behavior
+```
+
+------------------------------------------------------------------------
+
+## Start from failures, not features
+
+A common mistake is starting with:
+
+> What capabilities should this AI system have?
+
+That often leads to adding mechanisms before knowing whether they solve
+anything.
+
+A better starting point is:
+
+> What specific behavior is failing?
 
 For example:
 
-```text
-Session 1:
+Too broad:
+
+``` text
+The AI needs better memory.
+```
+
+More useful:
+
+``` text
+A temporary hypothesis from a previous discussion
+was treated as formal Current without adoption.
+```
+
+The second description identifies a boundary that can be tested.
+
+------------------------------------------------------------------------
+
+## Isolate one behavioral slice
+
+Large AI projects contain many interacting behaviors.
+
+When something fails, I try to reduce it to the smallest observable
+unit.
+
+A behavioral slice should answer:
+
+-   What input condition creates the situation?
+-   What behavior is expected?
+-   What behavior actually happens?
+-   Which boundary does this test?
+
+Example:
+
+``` text
+Given:
+
 Current = A
 
+
+When:
+
+The conversation discusses B,
+but B is never adopted
+
+
+Then:
+
+A later invocation should still resolve Current as A.
+```
+
+This does not test the entire project.
+
+It tests one responsibility boundary:
+
+``` text
+Conversation
+≠
+Current State
+```
+
+------------------------------------------------------------------------
+
+## Use synthetic cases before complex scenarios
+
+Synthetic cases remove unnecessary variables.
+
+They are useful because a failure can be attributed more easily.
+
+Example:
+
+``` text
+Session 1:
+
+Current = A
+
+
 Session 2:
-Discuss B, but do not adopt it
+
+Discuss B
+
 
 Session 3:
+
 Ask what is current
 ```
 
-Synthetic cases make attribution easier. If the test fails, I know the problem is likely in the mechanism being tested rather than in domain-specific ambiguity.
+The purpose is not to simulate production perfectly.
 
-They are not evidence of production readiness. They are a way to find out whether the mechanism behaves coherently at all.
+The purpose is to answer:
 
-## Test in the target host
+> Does the mechanism behave coherently in a controlled situation?
 
-A design can be internally consistent and still fail in the environment where it runs.
+Synthetic cases are especially useful for:
 
-Different hosts may:
+-   state authority;
+-   persistence decisions;
+-   recovery behavior;
+-   rule boundaries.
 
-- follow instructions differently;
-- handle long context differently;
-- expose different file semantics;
-- behave differently around tools;
-- recover state differently;
-- fail in different ways.
+------------------------------------------------------------------------
 
-So I treat target-host testing as part of the design, not a final deployment check.
+## Test where the system actually runs
 
-The same artifacts being readable in two hosts does not mean the two hosts are behaviorally compatible.
+A design can be logically consistent and still behave differently in a
+real host.
 
-## Record the exact failure before changing the rules
+The host may affect:
 
-When a test fails, I try not to respond with “the model is unstable.”
+-   instruction following;
+-   context handling;
+-   tool behavior;
+-   file operations;
+-   execution limits.
 
-That description is too broad to improve the system.
+Therefore:
 
-A better note is:
-
-> The host loaded Current=A correctly, but later summarized the recent conversation and replaced A with B.
-
-That observation points toward a specific boundary failure.
-
-Only after I can describe the failure clearly do I change the design.
-
-## Make the smallest rule change that addresses the failure
-
-This is the part I find easiest to violate.
-
-A single failure can make a large new mechanism feel justified. Usually it is not.
-
-If recent conversation can override Current, the first fix should be a narrow authority rule around Current. It should not automatically create a new state layer, a new object type, a new ledger, and a new recovery protocol.
-
-Every new hard rule creates another interaction surface.
-
-The smallest useful change is easier to understand, test, remove, and generalize later if the evidence supports it.
-
-## Retest the original slice first
-
-Before testing anything new, I rerun the case that originally failed.
-
-If the failure still exists, the current change is not finished.
-
-This sounds obvious, but it prevents a common pattern in AI-system design: adding more instructions around an unresolved failure until nobody can tell which part of the system is doing the work.
-
-## Then test interactions
-
-A local fix can create a global problem.
-
-For example, a strong Current authority rule can prevent conversation from casually changing state. Good.
-
-The same rule can become too strong and prevent new evidence from legitimately revising Current. Bad.
-
-So the combined behavior has to satisfy both conditions.
-
-This is where many “good” rules break. They work in isolation but fail when another valid rule pushes in the opposite direction.
-
-## Turn real failures into regression cases
-
-Once a failure has been observed and fixed, I keep it.
-
-Future changes to the host, contract, working logic, or context strategy should be checked against the same case.
-
-The regression suite therefore grows from actual failures rather than from a desire to enumerate every theoretical possibility.
-
-That keeps the tests connected to evidence of necessity.
-
-## Remove rules as well as adding them
-
-Long-running instruction sets tend to accumulate.
-
-The usual loop is:
-
-```text
-failure
-→ add rule
-→ another failure
-→ add another rule
-→ never remove anything
+``` text
+Design correctness
+≠
+Observed host behavior
 ```
 
-Eventually the system becomes hard to reason about even if every individual rule once had a reason to exist.
+A mechanism should be tested in the environment where it will actually
+operate.
 
-I use ablation for this. Remove or weaken a rule, rerun the relevant tests, and see whether behavior materially degrades.
+------------------------------------------------------------------------
 
-If it does not, the rule may be redundant, obsolete, or already covered by a more general principle.
+## Describe failures precisely
 
-Simplification is part of validation.
+Broad descriptions are difficult to improve.
 
-## Use adversarial cases when a boundary matters
+For example:
 
-Some failures only appear when the input strongly tempts the system to cross a boundary.
-
-If Current authority matters, repeat an incorrect candidate several times and see whether recency wins.
-
-If source independence matters, present several reports that derive from the same origin and see whether quantity is mistaken for independence.
-
-Adversarial tests are useful because they test the boundary itself rather than the easy path.
-
-## Keep validation claims scoped
-
-I do not treat “designed,” “tested,” and “production-observed” as interchangeable.
-
-A mechanism may be:
-
-- defined on paper;
-- tested with a synthetic case;
-- tested in a target host;
-- tested in interaction with related mechanisms;
-- protected by regression cases;
-- observed in real long-running use.
-
-Those are different claims.
-
-They also need scope. A mechanism tested in one host and one version has not thereby been validated everywhere.
-
-## Diagnose the domain before fixing the failure
-
-A failure does not automatically mean the contract is wrong.
-
-The problem may be:
-
-- the host cannot perform a required operation reliably;
-- the contract gives conflicting authority;
-- the working logic failed to load or use valid state;
-- the state itself is stale.
-
-Those require different fixes.
-
-This is one reason the architecture separates Host, Contract, Working Logic, and State in the first place: the separation improves diagnosis.
-
-## Compress only after behavior stabilizes
-
-Design notes can be verbose. Production rules should not be.
-
-But compressing too early is risky because short wording can hide distinctions that have not yet been tested.
-
-My preferred order is:
-
-```text
-understand
-→ test
-→ stabilize
-→ compress
+``` text
+The model is unstable.
 ```
 
-Compression is the last step, not the first.
+does not identify a repair path.
 
-## What I try to avoid
+A better description:
 
-I try to avoid a few recurring design habits:
+``` text
+The system loaded Current=A,
+but later summarized recent discussion
+and treated B as the new Current.
+```
 
-**Giant Prompt First.** If everything is encoded in one large instruction set before behavior is isolated, failure attribution becomes difficult.
+This points toward a specific authority problem.
 
-**Importing mechanisms by analogy.** A mechanism can be well established elsewhere and still be unnecessary here. I want an observed requirement before paying for its complexity.
+The purpose of failure analysis is not to assign blame.
 
-**Universal Framework First.** I do not want to decide that every long-running AI project needs the same object model, history system, or recovery machinery.
+It is to identify which responsibility failed.
 
-**Save Everything.** More stored information usually creates more selection and authority problems.
+------------------------------------------------------------------------
 
-**Runtime self-promotion of rules.** Learning can propose rule changes. It should not silently approve them.
+## Make the smallest useful change
 
-## The loop
+Once the failure is understood, avoid immediately adding a large
+mechanism.
 
-The process can be summarized without turning it into a rigid workflow:
+A common pattern is:
 
-```mermaid
+``` text
+Failure
+→ Add rule
+→ Another failure
+→ Add more rules
+→ Increasing complexity
+```
+
+Instead:
+
+``` text
+Observed failure
+→ Minimal change
+→ Retest
+```
+
+For example:
+
+If conversation can override Current, first strengthen the Current
+boundary.
+
+Do not immediately introduce:
+
+-   additional memory layers;
+-   new state systems;
+-   complex recovery mechanisms.
+
+Every new mechanism creates more interactions.
+
+------------------------------------------------------------------------
+
+## Retest the original failure
+
+After a change, first verify that the original problem is solved.
+
+The important question is:
+
+> Did the failure disappear?
+
+Not:
+
+> What other improvements can be added?
+
+This keeps development connected to evidence.
+
+------------------------------------------------------------------------
+
+## Test interactions, not only isolated rules
+
+A rule can work correctly by itself and still create problems with
+another rule.
+
+Example:
+
+Rule A:
+
+``` text
+Conversation should not casually replace Current.
+```
+
+Rule B:
+
+``` text
+New evidence may update Current.
+```
+
+Both are reasonable.
+
+But if Rule A becomes too strong:
+
+``` text
+Current can never change.
+```
+
+the system creates a new failure.
+
+Interaction testing checks whether valid mechanisms remain compatible.
+
+------------------------------------------------------------------------
+
+## Turn failures into regression cases
+
+When a failure is fixed, keep a version of the case.
+
+Example:
+
+``` text
+Repeated discussion of B
+must not replace Current=A
+without formal adoption.
+```
+
+Future changes can be checked against the same behavior.
+
+The regression set should grow from observed problems, not from trying
+to predict every possible problem.
+
+------------------------------------------------------------------------
+
+## Use ablation to remove unnecessary complexity
+
+Design evolution should include removal.
+
+Ablation asks:
+
+> Does this mechanism still provide value?
+
+A simple process:
+
+``` text
+Remove or weaken a rule
+
+↓
+
+Run relevant tests
+
+↓
+
+Observe whether behavior degrades
+```
+
+If nothing changes, the mechanism may be:
+
+-   unnecessary;
+-   duplicated;
+-   already covered elsewhere.
+
+A system that only accumulates rules becomes difficult to understand.
+
+------------------------------------------------------------------------
+
+## Use adversarial cases for important boundaries
+
+Some failures only appear when the system is strongly pushed toward the
+wrong behavior.
+
+Examples:
+
+### State authority
+
+Normal:
+
+``` text
+Mention B once.
+```
+
+Adversarial:
+
+``` text
+Discuss B repeatedly
+with much more recent context than A.
+```
+
+Question:
+
+Does repetition create false authority?
+
+------------------------------------------------------------------------
+
+### Evidence independence
+
+Normal:
+
+``` text
+One source supports C.
+```
+
+Adversarial:
+
+``` text
+Ten sources support C,
+but all originate from one source.
+```
+
+Question:
+
+Does quantity replace evidence quality?
+
+------------------------------------------------------------------------
+
+### Rule promotion
+
+Normal:
+
+``` text
+One useful observation appears.
+```
+
+Adversarial:
+
+``` text
+Many similar observations appear.
+```
+
+Question:
+
+Does the system turn patterns into rules without validation?
+
+------------------------------------------------------------------------
+
+## Keep validation claims precise
+
+Different testing stages prove different things.
+
+``` text
+Designed
+
+↓
+
+Synthetic-tested
+
+↓
+
+Target-host tested
+
+↓
+
+Interaction-tested
+
+↓
+
+Regression-protected
+
+↓
+
+Production-observed
+```
+
+These stages should not be treated as equivalent.
+
+A design document shows intent.
+
+A synthetic test shows controlled behavior.
+
+A host test shows environment behavior.
+
+Production observation shows real usage behavior.
+
+Each provides different evidence.
+
+------------------------------------------------------------------------
+
+## The design loop
+
+The process can be summarized as:
+
+``` mermaid
 flowchart LR
-    U[Usage]
-    F[Observed Failure]
+    P[Observed Problem]
     B[Behavioral Slice]
-    T[Target-host Test]
+    S[Synthetic Case]
+    T[Target Host Test]
     M[Minimal Change]
     R[Retest]
     G[Regression]
-    S[Simplification]
+    A[Ablation]
 
-    U --> F --> B --> T --> M --> R --> G --> S
+    P --> B --> S --> T --> M --> R --> G --> A
 ```
 
-The point is not that every design change must pass through an identical checklist.
+The purpose of this method is not to prove that an AI project is
+finished.
 
-The point is that important rules should have a traceable reason to exist.
+It is to make sure every important piece of complexity has a reason to
+exist.
 
-If I cannot explain which problem a piece of complexity solves, which failure exposed the problem, and what evidence shows the mechanism helps, I treat that complexity as suspect.
+If a rule cannot be connected to an observed problem, a design decision,
+or evidence that it improves behavior, it should be reconsidered.
