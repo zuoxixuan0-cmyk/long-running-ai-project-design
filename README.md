@@ -1,28 +1,36 @@
 # Long-Running AI Project Design
 
-A set of public design notes for AI projects that need to survive beyond a single chat.
+A set of public design notes about building AI projects that can
+continue across separate invocations.
 
-I started treating this as a system-design problem rather than a memory problem when projects began to span many invocations. The failure mode was not simply that a model forgot something. More often, the project lost track of what was *current*, what was merely discussed, what had become stale, and which parts of the system were actually allowed to change.
+The starting point of this work was not a search for a better memory
+system.
 
-That led me to a small set of distinctions that now shape how I design long-running AI projects.
+The recurring problem was different:
 
-The most important one is simple:
+A long-running AI project needs to know what information represents its
+current state, what information is only historical context, what can be
+trusted, and what is allowed to change.
 
-**Conversation is useful context, but it is not a reliable source of current state.**
+A conversation can contain useful information, but it is not
+automatically the current state of a project.
 
-A conversation can contain accepted conclusions, discarded ideas, speculation, old information, and temporary working assumptions. Once a project needs to resume later, those things cannot all carry the same weight.
+A stored state can represent where a project stopped, but it does not
+automatically prove that external reality has remained unchanged.
 
-The same problem appears in other forms. A saved state may be authoritative for what the project last recorded and still be wrong about the outside world today. Historical material can be worth keeping without belonging in every future context. Experience from previous runs can be useful without becoming a permanent rule. And a system can learn something during runtime without gaining permission to rewrite its own production behavior.
+A previous conclusion can be useful, but it should not automatically
+become a permanent rule.
 
-This repository is my attempt to make those boundaries explicit.
+These distinctions become increasingly important as AI projects continue
+across many sessions.
 
-It is not a product or a universal agent framework. It is a public description of a design method that has emerged from building and revising long-running AI projects.
+------------------------------------------------------------------------
 
-## The basic model
+## Core idea
 
-I currently separate the system into four responsibility domains:
+This repository explores a simple separation of responsibilities:
 
-```mermaid
+``` mermaid
 flowchart TB
     H[Host AI]
     L[Working Logic]
@@ -35,100 +43,158 @@ flowchart TB
     C -->|governs persistence| S
 ```
 
-**Host AI** is the execution environment: the model, tools, file access, and interaction surface available in a given run.
+### Host AI
 
-**Working Logic** describes how the current version of the project should operate. It covers things such as request interpretation, context construction, evidence handling, research behavior, and decisions about whether new cognition is worth carrying forward.
+The execution environment where the project runs.
 
-**System Contract** defines the stable semantics of persistent state: what may exist, where authority resides, how identity is maintained, and what counts as a valid update or recovery action.
+This may include:
 
-**Persistent State** carries the formal state that future invocations actually need.
+-   model behavior;
+-   tools;
+-   context handling;
+-   file access;
+-   interaction capabilities.
 
-These are responsibility boundaries, not a prescribed file layout. A project could implement them with Markdown, a database, an object store, platform state, or a hybrid design.
+The host affects behavior, but it should not be the only place where
+project continuity exists.
 
-## Why separate them?
+### Working Logic
 
-Because changes in one part of the system do not automatically imply changes in the others.
+The current operating behavior of the project.
 
-A model can be replaced without changing the project state. A project state can change without changing its operating logic. A new piece of evidence can revise the project’s understanding without justifying a new system rule.
+It covers questions such as:
 
-Keeping those changes separate makes it easier to answer questions such as:
+-   how requests are interpreted;
+-   how information is evaluated;
+-   how context is constructed;
+-   how the project decides whether something has long-term value.
 
-- Did the host behave differently, or did the project state actually change?
-- Is this a stale state problem, or a bad contract?
-- Did the project learn something new, or did the rules themselves change?
-- Is a recovery failure caused by missing state, or by incompatible host behavior?
+### System Contract
 
-That separation has been more useful to me than treating the whole project as “a prompt plus memory.”
+The stable rules that define persistent state.
 
-## From a run to long-term state
+It describes:
 
-Another recurring problem is deciding what should survive a run.
+-   what kinds of state exist;
+-   where authority comes from;
+-   how updates are interpreted;
+-   how recovery should work.
 
-The naive rule is to persist everything new. In practice, that creates noise quickly. Search results, intermediate analysis, temporary hypotheses, and low-value observations accumulate until persistence itself starts to interfere with reasoning.
+### Persistent State
 
-I use a two-stage decision instead.
+The formal information that future invocations need in order to
+continue.
 
-First: **is this cognition worth preserving across runs?**
+It is not intended to be a complete archive of everything that happened.
 
-Second: **if it is worth preserving, does the system contract allow it to be persisted, and where does it belong?**
+------------------------------------------------------------------------
 
-The interface between those two questions is what I call **Memory Intent**. It is a semantic request such as “update current state,” “record material history,” “update knowledge,” or simply “no write.” It is not a file operation.
+## Why this separation matters
 
-This distinction matters because “useful” and “persistable” are different properties.
+Long-running AI projects often fail when different kinds of information
+are treated as the same thing.
 
-A run can be useful and still produce no persistent update.
+Examples:
 
-## The minimum system can stay small
-
-I do not assume that every project needs History, Knowledge, Backfill, Compression, Concurrency, or cross-host recovery.
-
-A small long-running project may need only:
-
-- a stable contract for what persistent state means;
-- working logic for how the project operates;
-- an explicit current state;
-- enough recovery discipline to resume safely.
-
-Everything else should earn its place.
-
-That is a recurring theme in these notes: **complexity should enter because a failure made it necessary, not because the architecture looks incomplete without it.**
-
-## How the design evolves
-
-The design process I use is failure-driven.
-
-A recurring sequence looks like this:
-
-```text
-Observe a problem
-→ isolate one behavior
-→ build a synthetic case
-→ test it in the target host
-→ record the exact failure
-→ make the smallest useful rule change
-→ retest
-→ test interactions
-→ keep the failure as a regression case
-→ remove rules that no longer earn their cost
+``` text
+Conversation
+≠
+Current State
 ```
 
-I use synthetic examples in the public notes so that the mechanism can be discussed without exposing production contracts, prompts, schemas, state, or business logic.
+``` text
+Recovered State
+≠
+Current Reality
+```
 
-The important part is that the design is tested where it actually runs. A clean rule on paper does not guarantee the same behavior in a real host.
+``` text
+Learning
+≠
+Rule Change
+```
 
-## Where to start
+The goal is not to store everything.
 
-- [Problem Model](docs/01-problem-model.md) — the recurring failures that motivated the design.
-- [Architecture](docs/02-architecture.md) — the responsibility boundaries and persistence interface.
-- [Principles](docs/03-principles.md) — the smaller set of rules I use to evaluate design decisions.
-- [Design Method](docs/04-design-method.md) — how I test, revise, and simplify the system.
+The goal is to preserve the information that future invocations actually
+need while keeping authority and change boundaries clear.
+
+------------------------------------------------------------------------
+
+## Documentation
+
+### Problem Model
+
+Why these problems appear and what failure patterns motivated the
+design.
+
+→ [01 \| Problem Model](docs/01-problem-model.md)
+
+### Architecture
+
+The responsibility boundaries between host, logic, contract, and state.
+
+→ [02 \| Architecture](docs/02-architecture.md)
+
+### Principles
+
+The design principles used to evaluate decisions.
+
+→ [03 \| Principles](docs/03-principles.md)
+
+### Design Method
+
+How failures, tests, and design changes are handled.
+
+→ [04 \| Design Method](docs/04-design-method.md)
+
+### Worked Example
+
+A synthetic walkthrough showing state changes, recovery, and persistence
+decisions.
+
+→ [05 \| Worked Example](docs/05-worked-example.md)
+
+### Recovery After a Gap
+
+Why recovering a previous state is different from validating current
+reality.
+
+→ [06 \| Recovery After a Gap](docs/06-recovery-after-a-gap.md)
+
+### Testing Long-Running AI Behavior
+
+A testing approach focused on boundaries, failures, and regression.
+
+→ [07 \| Testing Long-Running AI
+Behavior](docs/07-testing-long-running-ai-behavior.md)
+
+------------------------------------------------------------------------
 
 ## Scope
 
-These notes are deliberately public at the design level, not at the implementation level.
+This repository is a public design note collection.
 
-They discuss problems, trade-offs, patterns, validation methods, and abstract architecture. They do not publish production contracts, production prompts, production schemas, real persistent state, business logic, or implementation-specific fixtures.
+It discusses:
 
-The notes are also not a claim of universal validation. Some ideas are stable for me; others are still being tested across different project shapes and host behavior.
+-   problems;
+-   architectural boundaries;
+-   design decisions;
+-   testing approaches;
+-   abstract patterns.
 
-This repository is `Public v0.1`: a design snapshot, not a finished theory.
+It does not publish:
+
+-   production contracts;
+-   production prompts;
+-   production schemas;
+-   real persistent state;
+-   business logic;
+-   implementation-specific details.
+
+This is not presented as a universal AI framework.
+
+Some ideas are stable design patterns. Others are still being explored
+across different project shapes and host environments.
+
+This repository represents a public snapshot of the design process.
