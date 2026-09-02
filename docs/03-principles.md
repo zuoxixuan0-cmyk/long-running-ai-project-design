@@ -1,90 +1,185 @@
 # Principles
 
-I originally had a much longer list of principles. Most of them turned out to be consequences of a smaller set.
+These principles are a smaller set of design rules that I use when
+evaluating long-running AI project behavior.
 
-These are the ones I currently use most often when reviewing a long-running AI project.
+They are not a required framework.
 
-## 1. Do not make the host carry the whole project
+They are decision boundaries that help answer questions such as:
 
-The host is replaceable. Formal continuity should not exist only in conversation context, model memory, or implicit platform behavior.
+-   Should this information persist?
+-   Should this state be trusted?
+-   Does this failure require a new mechanism?
+-   Did the project learn something, or did the system rules actually
+    change?
 
-A host change may require compatibility testing, but it should not silently redefine the project.
+The goal is not maximum memory or maximum automation.
 
-## 2. Give Current an explicit authority when continuity depends on it
+The goal is maintaining clear boundaries as a project continues over
+time.
 
-If a future invocation needs to know what the project formally holds now, it should not have to infer that from recency, tone, or conversational context.
+------------------------------------------------------------------------
 
-Current should be identifiable.
+## 1. Separate Context from State
 
-That does not make it true forever. It only makes it the formal state that the system knows it must verify or revise.
+Conversation, documents, observations, and previous discussions can all
+provide useful context.
 
-## 3. Keep authority separate from truth
+They are not automatically formal project state.
 
-A state can be authoritative and still be stale.
+A project needs a clear answer to:
 
-A source can be official and still be wrong.
+> What does the system formally hold as current?
 
-A stored conclusion can be internally consistent and still fail against new evidence.
+Without that separation, recent information can accidentally replace
+accepted state simply because it is newer or more detailed.
 
-Persistence creates continuity; it does not create correctness.
+------------------------------------------------------------------------
 
-## 4. Let reality defeat the schema
+## 2. Separate Authority from Truth
 
-A schema is an encoding tool.
+A state can be authoritative without being permanently true.
 
-If evidence does not fit cleanly, I would rather preserve uncertainty, revise the structure, or leave a state incomplete than force reality into a category that makes the data look tidy.
+For example:
 
-Unknown is a valid state.
+``` text
+Current = B
+```
 
-## 5. Persist conclusions with future value, not every trace of computation
+means:
 
-Search queries, intermediate rankings, temporary hypotheses, and tool logs may be useful during a run without deserving long-term status.
+> This is the formal state currently held by the system.
 
-The question is not “did this happen?”
+It does not mean:
 
-It is “will a future invocation need this cognition in order to continue well?”
+> External reality can never change away from B.
 
-That keeps persistent state smaller and reduces the chance that old execution debris becomes new context.
+Authority defines where the system looks for a formal answer.
 
-## 6. Allow useful runs to end without a write
+Validation determines whether that answer still matches reality.
 
-Persistence should not be a ritual.
+------------------------------------------------------------------------
 
-A run may confirm that nothing material changed. It may produce a useful answer that has no cross-run value. It may leave an open question unresolved.
+## 3. Persist Meaning, Not Every Trace
 
-All of those can be successful outcomes.
+Not everything produced during a run deserves a place in persistent
+state.
 
-If every invocation is expected to create or update something, state quality usually degrades.
+Temporary analysis, intermediate searches, abandoned ideas, and
+execution details may help the current run without helping future runs.
 
-## 7. Keep cognition open and rules governed
+A useful question is:
 
-The project should be able to change its mind when reality changes.
+> Will a future invocation need this information to continue correctly?
 
-Its production rules should be harder to change than its current understanding.
+If the answer is no, persistence may create more noise than value.
 
-That difference is deliberate. Runtime learning may generate candidate improvements, but promotion into stable rules should go through testing and governance.
+------------------------------------------------------------------------
 
-## 8. Make complexity earn its place
+## 4. Keep Runtime Cognition Separate from Rule Changes
 
-I try not to add a mechanism because the architecture feels incomplete without it.
+A project can learn something during execution.
 
-History is useful when past state matters. Compression is useful when scale becomes a real problem. Concurrency controls are useful when there are actually multiple writers.
+That does not mean the production rules should immediately change.
 
-Until then, the mechanism is mostly maintenance cost and interaction surface.
+A useful distinction:
 
-This principle applies to testing infrastructure too. A project does not become more reliable just because it has more machinery.
+``` text
+Observation
+→ Candidate improvement
+→ Testing
+→ Governed rule change
+```
+
+Runtime cognition should be able to reveal possible improvements without
+silently rewriting the system that generated it.
+
+------------------------------------------------------------------------
+
+## 5. Let Complexity Follow Observed Failure
+
+A mechanism should exist because a real problem requires it.
+
+Not because the architecture feels incomplete without it.
+
+Examples:
+
+-   History is useful when historical paths matter.
+-   Recovery systems are useful when interruptions create real problems.
+-   Concurrency controls are useful when multiple writers exist.
+
+Additional capability creates additional maintenance cost and
+interaction surface.
+
+Complexity should earn its place.
+
+------------------------------------------------------------------------
+
+## 6. Preserve Uncertainty When Evidence Is Insufficient
+
+A system should not force certainty simply because a value is required.
+
+Sometimes the correct state is:
+
+``` text
+Unknown
+```
+
+Unknown can represent:
+
+-   insufficient evidence;
+-   unresolved conflict;
+-   incomplete recovery;
+-   unavailable validation.
+
+A false certainty is often more damaging than an explicit uncertainty.
+
+------------------------------------------------------------------------
 
 ## A practical review checklist
 
-When I review a design, I usually ask questions like these:
+When reviewing a long-running AI project, I ask:
 
-- Is this formal state, or only conversation context?
-- If it is formal state, where does its authority come from?
-- Is the state authoritative, or merely likely to be true?
-- Is this worth carrying into another invocation?
-- If it is worth carrying forward, does the contract already have a valid place for it?
-- Is this new mechanism solving an observed failure?
-- Did the system learn something, or did the production rules actually change?
-- If the project resumed after a gap, what still needs to be revalidated?
+-   Is this context or formal state?
+-   If it is state, where does its authority come from?
+-   Is the state still valid, or only historically valid?
+-   Does this information have future value?
+-   Is this change solving an observed failure?
+-   Is this a cognition change or a rule change?
+-   Is the added complexity justified by evidence?
 
-These questions are more useful to me than a large checklist of mandatory modules.
+These questions are more useful than a list of mandatory modules.
+
+------------------------------------------------------------------------
+
+## The common pattern
+
+Many failures in long-running AI systems come from collapsing things
+that should remain separate:
+
+``` text
+Context
+≠
+State
+```
+
+``` text
+Authority
+≠
+Truth
+```
+
+``` text
+Learning
+≠
+Rule Change
+```
+
+``` text
+Capability
+≠
+Obligation
+```
+
+Keeping these boundaries visible makes the system easier to test,
+recover, and evolve.
